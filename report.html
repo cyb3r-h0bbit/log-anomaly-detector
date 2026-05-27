@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Log Analysis Report</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
+
+:root {
+  --bg:          #0a0a0f;
+  --surface:     #111118;
+  --surface2:    #18181f;
+  --border:      #2a2a35;
+  --text:        #e8e8ed;
+  --text-muted:  #8e8e9a;
+  --accent:      #5e7eff;
+  --critical:    #ff3b30;
+  --high:        #ff9500;
+  --medium:      #ffd60a;
+  --low:         #30d158;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'IBM Plex Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ── NOISE TEXTURE ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+.container { max-width: 1100px; margin: 0 auto; padding: 0 32px; position: relative; z-index: 1; }
+
+/* ── HEADER ── */
+.header {
+  border-bottom: 1px solid var(--border);
+  padding: 48px 0 32px;
+  margin-bottom: 40px;
+}
+
+.header-eyebrow {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 12px;
+}
+
+.header h1 {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  margin-bottom: 16px;
+}
+
+.header-meta {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 32px;
+  flex-wrap: wrap;
+}
+
+.header-meta span { display: flex; align-items: center; gap: 6px; }
+
+/* ── SCORE CARDS ── */
+.scorecard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 40px;
+}
+
+.scorecard {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.scorecard::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+}
+
+.scorecard.critical::before { background: var(--critical); }
+.scorecard.high::before     { background: var(--high); }
+.scorecard.medium::before   { background: var(--medium); }
+.scorecard.low::before      { background: var(--low); }
+.scorecard.total::before    { background: var(--accent); }
+
+.scorecard-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.scorecard-value {
+  font-size: 36px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.scorecard.critical .scorecard-value { color: var(--critical); }
+.scorecard.high     .scorecard-value { color: var(--high); }
+.scorecard.medium   .scorecard-value { color: var(--medium); }
+.scorecard.low      .scorecard-value { color: var(--low); }
+.scorecard.total    .scorecard-value { color: var(--accent); }
+
+/* ── SECTION TITLE ── */
+.section-title {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-title::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 14px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+/* ── ALERT CARDS ── */
+.alerts-section { margin-bottom: 48px; }
+
+.alert-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.alert-card:hover { border-color: var(--accent); }
+
+.alert-header {
+  padding: 16px 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.alert-header::-webkit-details-marker { display: none; }
+
+.severity-badge {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.alert-title-block { flex: 1; }
+
+.alert-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.alert-subtitle {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.alert-body {
+  padding: 0 20px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.alert-desc {
+  padding: 14px 0 12px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.alert-field {
+  margin-bottom: 12px;
+}
+
+.field-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.field-value {
+  font-size: 13px;
+  color: var(--text);
+}
+
+.mitre-tag {
+  display: inline-block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  background: rgba(94,126,255,0.12);
+  border: 1px solid rgba(94,126,255,0.3);
+  color: var(--accent);
+  padding: 3px 10px;
+  border-radius: 4px;
+  margin-right: 8px;
+}
+
+.recommendation-box {
+  background: var(--surface2);
+  border-left: 3px solid var(--accent);
+  padding: 12px 14px;
+  border-radius: 0 4px 4px 0;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.ioc-box {
+  background: rgba(255,59,48,0.06);
+  border: 1px solid rgba(255,59,48,0.2);
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--critical);
+}
+
+/* Evidence table */
+.evidence-toggle {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  margin-bottom: 8px;
+}
+
+.evidence-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  margin-top: 8px;
+}
+
+.evidence-table th {
+  text-align: left;
+  padding: 6px 10px;
+  background: var(--surface2);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.evidence-table td {
+  padding: 5px 10px;
+  border-bottom: 1px solid rgba(42,42,53,0.5);
+  color: var(--text);
+  vertical-align: top;
+  word-break: break-all;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.status-ok   { color: var(--low); }
+.status-warn { color: var(--medium); }
+.status-bad  { color: var(--critical); }
+
+/* ── FOOTER ── */
+.footer {
+  border-top: 1px solid var(--border);
+  padding: 24px 0 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="header-eyebrow">Security Operations · Log Analysis Report</div>
+    <h1>Anomaly Detection<br>Analysis Report</h1>
+    <div class="header-meta">
+      <span>📁 sample_logs/access_sample.csv</span>
+      <span>🕐 Generated: 2026-05-27 17:15:11</span>
+      <span>📊 38 entries analysed</span>
+      <span>🗓 Window: 2024-01-15 02:14 → 2024-01-15 23:46</span>
+      <span style="color:#ff3b30;font-weight:600">⚡ Overall Risk: CRITICAL</span>
+    </div>
+  </header>
+
+  <!-- SCORECARDS -->
+  <div class="scorecard-grid">
+    <div class="scorecard total">
+      <div class="scorecard-label">Total Alerts</div>
+      <div class="scorecard-value">11</div>
+    </div>
+    <div class="scorecard critical">
+      <div class="scorecard-label">Critical</div>
+      <div class="scorecard-value">2</div>
+    </div>
+    <div class="scorecard high">
+      <div class="scorecard-label">High</div>
+      <div class="scorecard-value">5</div>
+    </div>
+    <div class="scorecard medium">
+      <div class="scorecard-label">Medium</div>
+      <div class="scorecard-value">3</div>
+    </div>
+    <div class="scorecard low">
+      <div class="scorecard-label">Low</div>
+      <div class="scorecard-value">1</div>
+    </div>
+    <div class="scorecard total" style="--accent:#30d158">
+      <div class="scorecard-label">Risk Score</div>
+      <div class="scorecard-value" style="font-size:28px;color:#ff3b30">206</div>
+    </div>
+  </div>
+
+  <!-- ALERTS -->
+  <section class="alerts-section">
+    <div class="section-title">Detected Anomalies — sorted by severity</div>
+    
+<details class="alert-card" open>
+  <summary class="alert-header" style="list-style:none">
+    <span class="severity-badge" style="color:#ff3b30;background:rgba(255,59,48,0.12);border:1px solid #ff3b3033">CRITICAL</span>
+    <div class="alert-title-block">
+      <div class="alert-title">Brute Force Login Attack</div>
+      <div class="alert-subtitle">
+        <span>Rule: BF-001</span>
+        <span>Events: 7</span>
+        <span>IPs: 185.220.101.42</span>
+        <span>17:15:11</span>
+      </div>
+    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--text-muted)"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="alert-body">
+    <div class="alert-desc">6 failed login attempts from 185.220.101.42 in 60s targeting user 'admin'. ⚠️ Followed by SUCCESSFUL login at 2024-01-15 02:14:17.</div>
+    <div class="alert-field">
+      <div class="field-label">MITRE ATT&amp;CK</div>
+      <div>
+        <span class="mitre-tag">T1110</span>
+        <span style="font-size:13px;color:var(--text-muted)">Credential Access</span>
+      </div>
+    </div>
+    
+    <div class="alert-field">
+      <div class="field-label">Recommended Action</div>
+      <div class="recommendation-box">Block IP immediately. Enable account lockout policy (≥5 failures). Implement CAPTCHA and MFA. Review if account was compromised.</div>
+    </div>
+    <div class="alert-field">
+      <div class="field-label">Evidence (7 of 7 events)</div>
+      <div style="overflow-x:auto">
+        <table class="evidence-table">
+          <thead><tr>
+            <th>Time</th><th>IP</th><th>User</th><th>Action</th><th>Status</th><th>Endpoint</th><th>Bytes</th>
+          </tr></thead>
+          <tbody><tr><td>02:14:05</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>02:14:07</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>02:14:09</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>02:14:11</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>02:14:13</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>02:14:15</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>02:14:17</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-ok">200</td><td title="/auth/login">/auth/login</td><td>1,024</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</details>
+
+
+<details class="alert-card" open>
+  <summary class="alert-header" style="list-style:none">
+    <span class="severity-badge" style="color:#ff3b30;background:rgba(255,59,48,0.12);border:1px solid #ff3b3033">CRITICAL</span>
+    <div class="alert-title-block">
+      <div class="alert-title">Potential Data Exfiltration — Large Transfer to External IP</div>
+      <div class="alert-subtitle">
+        <span>Rule: EX-001</span>
+        <span>Events: 1</span>
+        <span>IPs: 45.33.32.156</span>
+        <span>17:15:11</span>
+      </div>
+    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--text-muted)"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="alert-body">
+    <div class="alert-desc">1 large responses sent to external IPs. Total data volume: 100.0 MB. Endpoints: /api/backup/full.</div>
+    <div class="alert-field">
+      <div class="field-label">MITRE ATT&amp;CK</div>
+      <div>
+        <span class="mitre-tag">T1041</span>
+        <span style="font-size:13px;color:var(--text-muted)">Exfiltration</span>
+      </div>
+    </div>
+    
+    <div class="alert-field">
+      <div class="field-label">Recommended Action</div>
+      <div class="recommendation-box">Immediately audit what data was served. Check DLP controls and endpoint egress policies. Review user/service account permissions for the involved endpoints. Cross-check with backup or ETL schedules before escalating.</div>
+    </div>
+    <div class="alert-field">
+      <div class="field-label">Evidence (1 of 1 events)</div>
+      <div style="overflow-x:auto">
+        <table class="evidence-table">
+          <thead><tr>
+            <th>Time</th><th>IP</th><th>User</th><th>Action</th><th>Status</th><th>Endpoint</th><th>Bytes</th>
+          </tr></thead>
+          <tbody><tr><td>23:46:00</td><td>45.33.32.156</td><td>backup_svc</td><td>GET</td><td class="status-ok">200</td><td title="/api/backup/full">/api/backup/full</td><td>104,857,600</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</details>
+
+
+<details class="alert-card" open>
+  <summary class="alert-header" style="list-style:none">
+    <span class="severity-badge" style="color:#ff9500;background:rgba(255,149,0,0.12);border:1px solid #ff950033">HIGH</span>
+    <div class="alert-title-block">
+      <div class="alert-title">Brute Force Login Attack</div>
+      <div class="alert-subtitle">
+        <span>Rule: BF-001</span>
+        <span>Events: 8</span>
+        <span>IPs: 203.0.113.77</span>
+        <span>17:15:11</span>
+      </div>
+    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--text-muted)"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="alert-body">
+    <div class="alert-desc">8 failed login attempts from 203.0.113.77 in 60s targeting user 'user001'.</div>
+    <div class="alert-field">
+      <div class="field-label">MITRE ATT&amp;CK</div>
+      <div>
+        <span class="mitre-tag">T1110</span>
+        <span style="font-size:13px;color:var(--text-muted)">Credential Access</span>
+      </div>
+    </div>
+    
+    <div class="alert-field">
+      <div class="field-label">Recommended Action</div>
+      <div class="recommendation-box">Block IP immediately. Enable account lockout policy (≥5 failures). Implement CAPTCHA and MFA. Review if account was compromised.</div>
+    </div>
+    <div class="alert-field">
+      <div class="field-label">Evidence (8 of 8 events)</div>
+      <div style="overflow-x:auto">
+        <table class="evidence-table">
+          <thead><tr>
+            <th>Time</th><th>IP</th><th>User</th><th>Action</th><th>Status</th><th>Endpoint</th><th>Bytes</th>
+          </tr></thead>
+          <tbody><tr><td>11:30:00</td><td>203.0.113.77</td><td>user001</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>11:30:02</td><td>203.0.113.77</td><td>user002</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>11:30:04</td><td>203.0.113.77</td><td>user003</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>11:30:06</td><td>203.0.113.77</td><td>user004</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>11:30:08</td><td>203.0.113.77</td><td>user005</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>11:30:10</td><td>203.0.113.77</td><td>user006</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>11:30:12</td><td>203.0.113.77</td><td>user007</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>11:30:14</td><td>203.0.113.77</td><td>user008</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</details>
+
+
+<details class="alert-card" open>
+  <summary class="alert-header" style="list-style:none">
+    <span class="severity-badge" style="color:#ff9500;background:rgba(255,149,0,0.12);border:1px solid #ff950033">HIGH</span>
+    <div class="alert-title-block">
+      <div class="alert-title">Credential Stuffing / Password Spray</div>
+      <div class="alert-subtitle">
+        <span>Rule: CS-001</span>
+        <span>Events: 8</span>
+        <span>IPs: 203.0.113.77</span>
+        <span>17:15:11</span>
+      </div>
+    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--text-muted)"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="alert-body">
+    <div class="alert-desc">IP 203.0.113.77 attempted login against 8 different accounts (8 total attempts). Usernames: user001, user002, user003, user004, user005, user006, user007, user008.</div>
+    <div class="alert-field">
+      <div class="field-label">MITRE ATT&amp;CK</div>
+      <div>
+        <span class="mitre-tag">T1110.004</span>
+        <span style="font-size:13px;color:var(--text-muted)">Credential Access</span>
+      </div>
+    </div>
+    
+    <div class="alert-field">
+      <div class="field-label">Recommended Action</div>
+      <div class="recommendation-box">Block source IP. Enable rate-limiting per IP (not per account). Alert affected users to reset passwords. Cross-reference IP against threat-intel feeds.</div>
+    </div>
+    <div class="alert-field">
+      <div class="field-label">Evidence (8 of 8 events)</div>
+      <div style="overflow-x:auto">
+        <table class="evidence-table">
+          <thead><tr>
+            <th>Time</th><th>IP</th><th>User</th><th>Action</th><th>Status</th><th>Endpoint</th><th>Bytes</th>
+          </tr></thead>
+          <tbody><tr><td>11:30:00</td><td>203.0.113.77</td><td>user001</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>11:30:02</td><td>203.0.113.77</td><td>user002</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>11:30:04</td><td>203.0.113.77</td><td>user003</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>11:30:06</td><td>203.0.113.77</td><td>user004</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>11:30:08</td><td>203.0.113.77</td><td>user005</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>11:30:10</td><td>203.0.113.77</td><td>user006</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>11:30:12</td><td>203.0.113.77</td><td>user007</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>11:30:14</td><td>203.0.113.77</td><td>user008</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</details>
+
+
+<details class="alert-card" open>
+  <summary class="alert-header" style="list-style:none">
+    <span class="severity-badge" style="color:#ff9500;background:rgba(255,149,0,0.12);border:1px solid #ff950033">HIGH</span>
+    <div class="alert-title-block">
+      <div class="alert-title">Admin Access Outside Business Hours</div>
+      <div class="alert-subtitle">
+        <span>Rule: OHA-001</span>
+        <span>Events: 5</span>
+        <span>IPs: 172.16.0.200, 185.220.101.42</span>
+        <span>17:15:11</span>
+      </div>
+    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--text-muted)"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="alert-body">
+    <div class="alert-desc">5 admin endpoint accesses detected outside business hours (before 07:00 or after 20:00). Users: admin, rmarcos. IPs: 172.16.0.200, 185.220.101.42.</div>
+    <div class="alert-field">
+      <div class="field-label">MITRE ATT&amp;CK</div>
+      <div>
+        <span class="mitre-tag">T1078.002</span>
+        <span style="font-size:13px;color:var(--text-muted)">Privilege Escalation / Persistence</span>
+      </div>
+    </div>
+    
+    <div class="alert-field">
+      <div class="field-label">Recommended Action</div>
+      <div class="recommendation-box">Verify activity with the account owner immediately. Enforce time-based access controls for admin roles. Review PAM / privileged access management policies.</div>
+    </div>
+    <div class="alert-field">
+      <div class="field-label">Evidence (5 of 5 events)</div>
+      <div style="overflow-x:auto">
+        <table class="evidence-table">
+          <thead><tr>
+            <th>Time</th><th>IP</th><th>User</th><th>Action</th><th>Status</th><th>Endpoint</th><th>Bytes</th>
+          </tr></thead>
+          <tbody><tr><td>02:14:20</td><td>185.220.101.42</td><td>admin</td><td>GET</td><td class="status-ok">200</td><td title="/admin/users">/admin/users</td><td>52,480</td></tr><tr><td>02:14:25</td><td>185.220.101.42</td><td>admin</td><td>GET</td><td class="status-ok">200</td><td title="/admin/transactions">/admin/transactions</td><td>1,048,576</td></tr><tr><td>02:14:30</td><td>185.220.101.42</td><td>admin</td><td>GET</td><td class="status-ok">200</td><td title="/admin/export">/admin/export</td><td>5,242,880</td></tr><tr><td>03:57:00</td><td>172.16.0.200</td><td>rmarcos</td><td>GET</td><td class="status-ok">200</td><td title="/admin/config">/admin/config</td><td>4,096</td></tr><tr><td>03:58:00</td><td>172.16.0.200</td><td>rmarcos</td><td>POST</td><td class="status-ok">200</td><td title="/admin/users/create">/admin/users/create</td><td>2,048</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</details>
+
+
+<details class="alert-card" open>
+  <summary class="alert-header" style="list-style:none">
+    <span class="severity-badge" style="color:#ff9500;background:rgba(255,149,0,0.12);border:1px solid #ff950033">HIGH</span>
+    <div class="alert-title-block">
+      <div class="alert-title">SQL Injection / Injection Probe Detected</div>
+      <div class="alert-subtitle">
+        <span>Rule: INJ-001</span>
+        <span>Events: 2</span>
+        <span>IPs: 198.51.100.88</span>
+        <span>17:15:11</span>
+      </div>
+    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--text-muted)"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="alert-body">
+    <div class="alert-desc">2 requests with SQL injection patterns detected from 1 IP(s): 198.51.100.88. Sample endpoint: /admin/login?id=1' OR '1'='1.</div>
+    <div class="alert-field">
+      <div class="field-label">MITRE ATT&amp;CK</div>
+      <div>
+        <span class="mitre-tag">T1190</span>
+        <span style="font-size:13px;color:var(--text-muted)">Initial Access</span>
+      </div>
+    </div>
+    
+    <div class="alert-field">
+      <div class="field-label">Recommended Action</div>
+      <div class="recommendation-box">Block offending IPs at WAF / firewall level. Review application code for parameterised query usage. Enable WAF rules for OWASP Top 10 (A03:2021 – Injection). Audit database logs for any successful injection queries.</div>
+    </div>
+    <div class="alert-field">
+      <div class="field-label">Evidence (2 of 2 events)</div>
+      <div style="overflow-x:auto">
+        <table class="evidence-table">
+          <thead><tr>
+            <th>Time</th><th>IP</th><th>User</th><th>Action</th><th>Status</th><th>Endpoint</th><th>Bytes</th>
+          </tr></thead>
+          <tbody><tr><td>09:45:01</td><td>198.51.100.88</td><td>unknown</td><td>GET</td><td class="status-bad">404</td><td title="/admin/login?id=1' OR '1'='1">/admin/login?id=1' OR '1'='1</td><td>256</td></tr><tr><td>09:45:02</td><td>198.51.100.88</td><td>unknown</td><td>GET</td><td class="status-bad">500</td><td title="/api/v1/users?sort=name;DROP TABLE">/api/v1/users?sort=name;DROP TABLE</td><td>256</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</details>
+
+
+<details class="alert-card" open>
+  <summary class="alert-header" style="list-style:none">
+    <span class="severity-badge" style="color:#ff9500;background:rgba(255,149,0,0.12);border:1px solid #ff950033">HIGH</span>
+    <div class="alert-title-block">
+      <div class="alert-title">Path Traversal Attempt</div>
+      <div class="alert-subtitle">
+        <span>Rule: PT-001</span>
+        <span>Events: 1</span>
+        <span>IPs: 198.51.100.88</span>
+        <span>17:15:11</span>
+      </div>
+    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--text-muted)"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="alert-body">
+    <div class="alert-desc">1 path traversal pattern(s) detected. IPs: 198.51.100.88. Sample: /admin/../../../etc/passwd.</div>
+    <div class="alert-field">
+      <div class="field-label">MITRE ATT&amp;CK</div>
+      <div>
+        <span class="mitre-tag">T1083</span>
+        <span style="font-size:13px;color:var(--text-muted)">Discovery</span>
+      </div>
+    </div>
+    
+    <div class="alert-field">
+      <div class="field-label">Recommended Action</div>
+      <div class="recommendation-box">Sanitise all file path inputs server-side. Block IPs at WAF. Confirm no sensitive files were served (check response codes and sizes). Review chroot / sandbox configurations.</div>
+    </div>
+    <div class="alert-field">
+      <div class="field-label">Evidence (1 of 1 events)</div>
+      <div style="overflow-x:auto">
+        <table class="evidence-table">
+          <thead><tr>
+            <th>Time</th><th>IP</th><th>User</th><th>Action</th><th>Status</th><th>Endpoint</th><th>Bytes</th>
+          </tr></thead>
+          <tbody><tr><td>09:45:00</td><td>198.51.100.88</td><td>unknown</td><td>GET</td><td class="status-bad">404</td><td title="/admin/../../../etc/passwd">/admin/../../../etc/passwd</td><td>256</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</details>
+
+
+<details class="alert-card" >
+  <summary class="alert-header" style="list-style:none">
+    <span class="severity-badge" style="color:#ffd60a;background:rgba(255,214,10,0.10);border:1px solid #ffd60a33">MEDIUM</span>
+    <div class="alert-title-block">
+      <div class="alert-title">Off-Hours System Access — admin</div>
+      <div class="alert-subtitle">
+        <span>Rule: OHU-001</span>
+        <span>Events: 1</span>
+        <span>IPs: 185.220.101.42</span>
+        <span>17:15:11</span>
+      </div>
+    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--text-muted)"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="alert-body">
+    <div class="alert-desc">User 'admin' accessed the system at unusual hours: 2024-01-15 02:14:17.</div>
+    <div class="alert-field">
+      <div class="field-label">MITRE ATT&amp;CK</div>
+      <div>
+        <span class="mitre-tag">T1078</span>
+        <span style="font-size:13px;color:var(--text-muted)">Initial Access / Defense Evasion</span>
+      </div>
+    </div>
+    
+    <div class="alert-field">
+      <div class="field-label">Recommended Action</div>
+      <div class="recommendation-box">Confirm with user if activity was intentional. Implement behavioural baseline alerts (UEBA). Consider requiring MFA re-authentication outside normal hours.</div>
+    </div>
+    <div class="alert-field">
+      <div class="field-label">Evidence (1 of 1 events)</div>
+      <div style="overflow-x:auto">
+        <table class="evidence-table">
+          <thead><tr>
+            <th>Time</th><th>IP</th><th>User</th><th>Action</th><th>Status</th><th>Endpoint</th><th>Bytes</th>
+          </tr></thead>
+          <tbody><tr><td>02:14:17</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-ok">200</td><td title="/auth/login">/auth/login</td><td>1,024</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</details>
+
+
+<details class="alert-card" >
+  <summary class="alert-header" style="list-style:none">
+    <span class="severity-badge" style="color:#ffd60a;background:rgba(255,214,10,0.10);border:1px solid #ffd60a33">MEDIUM</span>
+    <div class="alert-title-block">
+      <div class="alert-title">Off-Hours System Access — rmarcos</div>
+      <div class="alert-subtitle">
+        <span>Rule: OHU-001</span>
+        <span>Events: 1</span>
+        <span>IPs: 172.16.0.200</span>
+        <span>17:15:11</span>
+      </div>
+    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--text-muted)"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="alert-body">
+    <div class="alert-desc">User 'rmarcos' accessed the system at unusual hours: 2024-01-15 03:55:00.</div>
+    <div class="alert-field">
+      <div class="field-label">MITRE ATT&amp;CK</div>
+      <div>
+        <span class="mitre-tag">T1078</span>
+        <span style="font-size:13px;color:var(--text-muted)">Initial Access / Defense Evasion</span>
+      </div>
+    </div>
+    
+    <div class="alert-field">
+      <div class="field-label">Recommended Action</div>
+      <div class="recommendation-box">Confirm with user if activity was intentional. Implement behavioural baseline alerts (UEBA). Consider requiring MFA re-authentication outside normal hours.</div>
+    </div>
+    <div class="alert-field">
+      <div class="field-label">Evidence (1 of 1 events)</div>
+      <div style="overflow-x:auto">
+        <table class="evidence-table">
+          <thead><tr>
+            <th>Time</th><th>IP</th><th>User</th><th>Action</th><th>Status</th><th>Endpoint</th><th>Bytes</th>
+          </tr></thead>
+          <tbody><tr><td>03:55:00</td><td>172.16.0.200</td><td>rmarcos</td><td>LOGIN</td><td class="status-ok">200</td><td title="/auth/login">/auth/login</td><td>1,024</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</details>
+
+
+<details class="alert-card" >
+  <summary class="alert-header" style="list-style:none">
+    <span class="severity-badge" style="color:#ffd60a;background:rgba(255,214,10,0.10);border:1px solid #ffd60a33">MEDIUM</span>
+    <div class="alert-title-block">
+      <div class="alert-title">Suspicious / Automated Scanner User-Agent</div>
+      <div class="alert-subtitle">
+        <span>Rule: UA-001</span>
+        <span>Events: 13</span>
+        <span>IPs: 185.220.101.42, 198.51.100.88</span>
+        <span>17:15:11</span>
+      </div>
+    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--text-muted)"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="alert-body">
+    <div class="alert-desc">13 requests from known scanning tools: sqlmap, python-requests. IPs: 185.220.101.42, 198.51.100.88.</div>
+    <div class="alert-field">
+      <div class="field-label">MITRE ATT&amp;CK</div>
+      <div>
+        <span class="mitre-tag">T1595</span>
+        <span style="font-size:13px;color:var(--text-muted)">Reconnaissance</span>
+      </div>
+    </div>
+    
+    <div class="alert-field">
+      <div class="field-label">Recommended Action</div>
+      <div class="recommendation-box">Block IPs proactively. Add scanner UA strings to WAF blocklist. Review endpoints targeted for exposure risk. Check if any requests returned 200 responses.</div>
+    </div>
+    <div class="alert-field">
+      <div class="field-label">Evidence (13 of 13 events)</div>
+      <div style="overflow-x:auto">
+        <table class="evidence-table">
+          <thead><tr>
+            <th>Time</th><th>IP</th><th>User</th><th>Action</th><th>Status</th><th>Endpoint</th><th>Bytes</th>
+          </tr></thead>
+          <tbody><tr><td>02:14:05</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>02:14:07</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>02:14:09</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>02:14:11</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>02:14:13</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>02:14:15</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-bad">401</td><td title="/auth/login">/auth/login</td><td>512</td></tr><tr><td>02:14:17</td><td>185.220.101.42</td><td>admin</td><td>LOGIN</td><td class="status-ok">200</td><td title="/auth/login">/auth/login</td><td>1,024</td></tr><tr><td>02:14:20</td><td>185.220.101.42</td><td>admin</td><td>GET</td><td class="status-ok">200</td><td title="/admin/users">/admin/users</td><td>52,480</td></tr><tr><td>02:14:25</td><td>185.220.101.42</td><td>admin</td><td>GET</td><td class="status-ok">200</td><td title="/admin/transactions">/admin/transactions</td><td>1,048,576</td></tr><tr><td>02:14:30</td><td>185.220.101.42</td><td>admin</td><td>GET</td><td class="status-ok">200</td><td title="/admin/export">/admin/export</td><td>5,242,880</td></tr><tr><td>09:45:00</td><td>198.51.100.88</td><td>unknown</td><td>GET</td><td class="status-bad">404</td><td title="/admin/../../../etc/passwd">/admin/../../../etc/passwd</td><td>256</td></tr><tr><td>09:45:01</td><td>198.51.100.88</td><td>unknown</td><td>GET</td><td class="status-bad">404</td><td title="/admin/login?id=1' OR '1'='1">/admin/login?id=1' OR '1'='1</td><td>256</td></tr><tr><td>09:45:02</td><td>198.51.100.88</td><td>unknown</td><td>GET</td><td class="status-bad">500</td><td title="/api/v1/users?sort=name;DROP TABLE">/api/v1/users?sort=name;DROP TABLE</td><td>256</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</details>
+
+
+<details class="alert-card" >
+  <summary class="alert-header" style="list-style:none">
+    <span class="severity-badge" style="color:#30d158;background:rgba(48,209,88,0.10);border:1px solid #30d15833">LOW</span>
+    <div class="alert-title-block">
+      <div class="alert-title">Off-Hours System Access — backup_svc</div>
+      <div class="alert-subtitle">
+        <span>Rule: OHU-001</span>
+        <span>Events: 2</span>
+        <span>IPs: 45.33.32.156</span>
+        <span>17:15:11</span>
+      </div>
+    </div>
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--text-muted)"><path d="m6 9 6 6 6-6"/></svg>
+  </summary>
+  <div class="alert-body">
+    <div class="alert-desc">User 'backup_svc' accessed the system at unusual hours: 2024-01-15 23:45:00, 2024-01-15 23:46:00.</div>
+    <div class="alert-field">
+      <div class="field-label">MITRE ATT&amp;CK</div>
+      <div>
+        <span class="mitre-tag">T1078</span>
+        <span style="font-size:13px;color:var(--text-muted)">Initial Access / Defense Evasion</span>
+      </div>
+    </div>
+    
+    <div class="alert-field">
+      <div class="field-label">Recommended Action</div>
+      <div class="recommendation-box">Confirm with user if activity was intentional. Implement behavioural baseline alerts (UEBA). Consider requiring MFA re-authentication outside normal hours.</div>
+    </div>
+    <div class="alert-field">
+      <div class="field-label">Evidence (2 of 2 events)</div>
+      <div style="overflow-x:auto">
+        <table class="evidence-table">
+          <thead><tr>
+            <th>Time</th><th>IP</th><th>User</th><th>Action</th><th>Status</th><th>Endpoint</th><th>Bytes</th>
+          </tr></thead>
+          <tbody><tr><td>23:45:00</td><td>45.33.32.156</td><td>backup_svc</td><td>LOGIN</td><td class="status-ok">200</td><td title="/auth/login">/auth/login</td><td>1,024</td></tr><tr><td>23:46:00</td><td>45.33.32.156</td><td>backup_svc</td><td>GET</td><td class="status-ok">200</td><td title="/api/backup/full">/api/backup/full</td><td>104,857,600</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</details>
+
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <span>log-analyzer · github.com/hobbit</span>
+    <span>MITRE ATT&amp;CK® · OWASP Top 10 · ISO 27001</span>
+    <span>Generated 2026-05-27 17:15 UTC</span>
+  </footer>
+
+</div>
+</body>
+</html>

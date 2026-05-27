@@ -1,0 +1,39 @@
+timestamp,ip_address,user,action,status_code,endpoint,user_agent,bytes_sent
+2024-01-15 08:32:11,192.168.1.10,jsilva,LOGIN,200,/auth/login,Mozilla/5.0 (Windows NT 10.0),1024
+2024-01-15 08:45:00,192.168.1.10,jsilva,GET,200,/dashboard,Mozilla/5.0 (Windows NT 10.0),4096
+2024-01-15 09:10:22,10.0.0.55,mferreira,LOGIN,200,/auth/login,Mozilla/5.0 (Macintosh),1024
+2024-01-15 09:15:00,10.0.0.55,mferreira,GET,200,/reports,Mozilla/5.0 (Macintosh),8192
+2024-01-15 02:14:05,185.220.101.42,admin,LOGIN,401,/auth/login,python-requests/2.28.0,512
+2024-01-15 02:14:07,185.220.101.42,admin,LOGIN,401,/auth/login,python-requests/2.28.0,512
+2024-01-15 02:14:09,185.220.101.42,admin,LOGIN,401,/auth/login,python-requests/2.28.0,512
+2024-01-15 02:14:11,185.220.101.42,admin,LOGIN,401,/auth/login,python-requests/2.28.0,512
+2024-01-15 02:14:13,185.220.101.42,admin,LOGIN,401,/auth/login,python-requests/2.28.0,512
+2024-01-15 02:14:15,185.220.101.42,admin,LOGIN,401,/auth/login,python-requests/2.28.0,512
+2024-01-15 02:14:17,185.220.101.42,admin,LOGIN,200,/auth/login,python-requests/2.28.0,1024
+2024-01-15 02:14:20,185.220.101.42,admin,GET,200,/admin/users,python-requests/2.28.0,52480
+2024-01-15 02:14:25,185.220.101.42,admin,GET,200,/admin/transactions,python-requests/2.28.0,1048576
+2024-01-15 02:14:30,185.220.101.42,admin,GET,200,/admin/export,python-requests/2.28.0,5242880
+2024-01-15 11:30:00,203.0.113.77,user001,LOGIN,401,/auth/login,Mozilla/5.0 (Linux),512
+2024-01-15 11:30:02,203.0.113.77,user002,LOGIN,401,/auth/login,Mozilla/5.0 (Linux),512
+2024-01-15 11:30:04,203.0.113.77,user003,LOGIN,401,/auth/login,Mozilla/5.0 (Linux),512
+2024-01-15 11:30:06,203.0.113.77,user004,LOGIN,401,/auth/login,Mozilla/5.0 (Linux),512
+2024-01-15 11:30:08,203.0.113.77,user005,LOGIN,401,/auth/login,Mozilla/5.0 (Linux),512
+2024-01-15 11:30:10,203.0.113.77,user006,LOGIN,401,/auth/login,Mozilla/5.0 (Linux),512
+2024-01-15 11:30:12,203.0.113.77,user007,LOGIN,401,/auth/login,Mozilla/5.0 (Linux),512
+2024-01-15 11:30:14,203.0.113.77,user008,LOGIN,401,/auth/login,Mozilla/5.0 (Linux),512
+2024-01-15 14:22:00,192.168.1.10,jsilva,GET,200,/reports/monthly,Mozilla/5.0 (Windows NT 10.0),16384
+2024-01-15 14:30:00,10.0.0.55,mferreira,POST,200,/transactions/new,Mozilla/5.0 (Macintosh),2048
+2024-01-15 03:55:00,172.16.0.200,rmarcos,LOGIN,200,/auth/login,Mozilla/5.0 (iPhone),1024
+2024-01-15 03:57:00,172.16.0.200,rmarcos,GET,200,/admin/config,Mozilla/5.0 (iPhone),4096
+2024-01-15 03:58:00,172.16.0.200,rmarcos,POST,200,/admin/users/create,Mozilla/5.0 (iPhone),2048
+2024-01-15 16:00:00,192.168.1.50,lcosta,LOGIN,200,/auth/login,Mozilla/5.0 (Windows NT 10.0),1024
+2024-01-15 16:05:00,192.168.1.50,lcosta,GET,200,/dashboard,Mozilla/5.0 (Windows NT 10.0),4096
+2024-01-15 09:45:00,198.51.100.88,unknown,GET,404,/admin/../../../etc/passwd,sqlmap/1.7,256
+2024-01-15 09:45:01,198.51.100.88,unknown,GET,404,/admin/login?id=1' OR '1'='1,sqlmap/1.7,256
+2024-01-15 09:45:02,198.51.100.88,unknown,GET,500,/api/v1/users?sort=name;DROP TABLE,sqlmap/1.7,256
+2024-01-15 10:00:00,192.168.1.10,jsilva,GET,200,/reports/q4,Mozilla/5.0 (Windows NT 10.0),32768
+2024-01-15 10:15:00,10.0.0.55,mferreira,GET,200,/transactions,Mozilla/5.0 (Macintosh),8192
+2024-01-15 23:45:00,45.33.32.156,backup_svc,LOGIN,200,/auth/login,curl/7.81.0,1024
+2024-01-15 23:46:00,45.33.32.156,backup_svc,GET,200,/api/backup/full,curl/7.81.0,104857600
+2024-01-15 17:30:00,192.168.1.10,jsilva,LOGOUT,200,/auth/logout,Mozilla/5.0 (Windows NT 10.0),512
+2024-01-15 18:00:00,10.0.0.55,mferreira,LOGOUT,200,/auth/logout,Mozilla/5.0 (Macintosh),512
