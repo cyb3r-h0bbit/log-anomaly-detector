@@ -7,6 +7,10 @@ Usage:
     python main.py --log sample_logs/access_sample.csv --output output/report.html --vt
     python main.py --log /var/log/nginx/access.log --format txt
 """
+import sys
+import os
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 import argparse
 import sys
 import time
